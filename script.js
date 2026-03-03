@@ -39,7 +39,6 @@ async function loadNavbarComponent() {
                 <div class="profile-container" id="profile-trigger">
                     <img src="" class="profile-avatar" alt="User">
                     <div class="profile-dropdown" id="profile-dropdown">
-                        <a href="profile.html"><i class="fas fa-user"></i> My Profile</a>
                         <a href="#" id="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a>
                     </div>
                 </div>
@@ -61,21 +60,16 @@ async function loadNavbarComponent() {
             links.forEach(link => {
                 const href = link.getAttribute('href');
                 if (href && !href.startsWith('http') && !href.startsWith('#')) {
-                    let newHref = href;
+                    const isTargetInHtmlFolder = href.startsWith('html/');
+                    const cleanHref = isTargetInHtmlFolder ? href.replace('html/', '') : href;
+
                     if (isInHtmlFolder) {
                         if (href.startsWith('html/')) {
                             newHref = href.replace('html/', '');
-                        } else if (href === 'index.html') {
-                            newHref = '../index.html';
-                        } else if (!href.includes('/') && href !== 'index.html') {
-                            // same folder, stays as is
-                        }
-                    } else {
-                        if (!href.startsWith('html/') && href !== 'index.html' && !href.includes('/')) {
-                            newHref = 'html/' + href;
+                        } else {
+                            newHref = '../' + href;
                         }
                     }
-                    link.setAttribute('href', newHref);
                 }
             });
 
@@ -200,8 +194,6 @@ document.addEventListener("DOMContentLoaded", async function () {
 
     // --- AUTH INTEGRATION ---
 
-    const API_URL = "http://localhost:3000/api/auth";
-
     // Helper for Toast Notifications
     function showToast(message, type = "success") {
         Toastify({
@@ -212,49 +204,6 @@ document.addEventListener("DOMContentLoaded", async function () {
             backgroundColor: type === "success" ? "#2E7D32" : "#D32F2F",
             close: true
         }).showToast();
-    }
-
-    // Google OAuth Callback Parsing
-    const urlParams = new URLSearchParams(window.location.search);
-    console.log("URL Params parsed:", window.location.search);
-
-    const oauthToken = urlParams.get('token');
-    const oauthUser = urlParams.get('user');
-
-    console.log("Extracted token:", oauthToken ? "Yes (hidden)" : "No");
-    console.log("Extracted user string:", oauthUser);
-
-    if (oauthToken) {
-        localStorage.setItem('token', oauthToken);
-        if (oauthUser) {
-            try {
-                // Ensure it's valid JSON before saving
-                const parsed = JSON.parse(oauthUser);
-                console.log("Successfully parsed user object:", parsed);
-                localStorage.setItem('user', oauthUser);
-            } catch (e) {
-                console.error("Failed to parse oauthUser from URL:", e);
-                console.error("Raw oauthUser string was:", oauthUser);
-            }
-        } else {
-            console.warn("oauthToken found, but oauthUser is null or missing in URL");
-        }
-
-        // Clear token from URL
-        window.history.replaceState({}, document.title, window.location.pathname);
-        showToast("Successfully logged in with Google!");
-        // Redirect to home if on auth pages
-        if (window.location.pathname.includes("login.html") || window.location.pathname.includes("signup.html")) {
-            setTimeout(() => { window.location.href = "index.html"; }, 1500);
-        } else {
-            updateNavForUser();
-        }
-    }
-
-    const oauthError = urlParams.get('error');
-    if (oauthError) {
-        showToast(`Google login failed: ${oauthError}`, "error");
-        window.history.replaceState({}, document.title, window.location.pathname);
     }
 
     // UI State Management - Unified
@@ -315,157 +264,85 @@ document.addEventListener("DOMContentLoaded", async function () {
     // Initialize UI on page load
     updateNavForUser();
 
-    // Sign Up Logic
+    // --- PROFILE DROPDOWN logic ---
+    function setupProfileDropdown() {
+        const profileTrigger = document.getElementById('profile-trigger');
+        const profileDropdown = document.getElementById('profile-dropdown');
+        const logoutBtn = document.getElementById('logout-btn');
+
+        if (profileTrigger && profileDropdown) {
+            // Toggle dropdown on click
+            profileTrigger.addEventListener('click', function (e) {
+                e.stopPropagation();
+                profileDropdown.classList.toggle('active');
+            });
+
+            // Close dropdown when clicking elsewhere
+            document.addEventListener('click', function (e) {
+                if (!profileTrigger.contains(e.target)) {
+                    profileDropdown.classList.remove('active');
+                }
+            });
+        }
+
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+
+                // Clear auth data
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+
+                showToast("Logged out successfully");
+
+                // Redirect to home and refresh
+                setTimeout(() => {
+                    window.location.href = "index.html";
+                }, 1000);
+            });
+        }
+    }
+
+    // Sign Up Logic - form submission
     const signupForm = document.getElementById("signupForm");
     if (signupForm) {
-        signupForm.addEventListener("submit", async (e) => {
+        signupForm.addEventListener("submit", (e) => {
             e.preventDefault();
-            const name = document.getElementById("signupName").value;
-            const email = document.getElementById("signupEmail").value;
-            const password = document.getElementById("signupPassword").value;
-            const confirmPassword = document.getElementById("signupConfirmPassword").value;
-
-            if (password !== confirmPassword) {
-                showToast("Passwords do not match!", "error");
-                return;
-            }
-
-            try {
-                const response = await fetch(`${API_URL}/register`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ name, email, password })
-                });
-
-                const data = await response.json();
-
-                if (data.success) {
-                    showToast(data.message);
-                    setTimeout(() => {
-                        window.location.href = "login.html";
-                    }, 2000);
-                } else {
-                    showToast(data.message, "error");
-                }
-            } catch (error) {
-                showToast("Something went wrong!", "error");
-            }
+            location.reload();
         });
     }
 
-    // Login Logic
+    // Login Logic - form submission
     const loginForm = document.getElementById("loginForm");
     if (loginForm) {
-        loginForm.addEventListener("submit", async (e) => {
+        loginForm.addEventListener("submit", (e) => {
             e.preventDefault();
-            const email = document.getElementById("loginEmail").value;
-            const password = document.getElementById("loginPassword").value;
-
-            try {
-                const response = await fetch(`${API_URL}/login`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ email, password })
-                });
-
-                const data = await response.json();
-
-                if (data.success) {
-                    showToast(data.message);
-                    localStorage.setItem("token", data.token);
-                    if (data.userData) {
-                        localStorage.setItem("user", JSON.stringify(data.userData));
-                    }
-                    setTimeout(() => {
-                        window.location.href = "index.html";
-                    }, 2000);
-                } else {
-                    showToast(data.message, "error");
-                }
-            } catch (error) {
-                showToast("Something went wrong!", "error");
-            }
+            location.reload();
         });
     }
 
-    // Forgot Password Logic
+    // Forgot Password Logic - form submission
     const forgotPasswordForm = document.getElementById("forgotPasswordForm");
     if (forgotPasswordForm) {
-        forgotPasswordForm.addEventListener("submit", async (e) => {
+        forgotPasswordForm.addEventListener("submit", (e) => {
             e.preventDefault();
-            const email = document.getElementById("forgotPassEmail").value;
-
-            try {
-                const response = await fetch(`${API_URL}/send-reset-otp`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ email })
-                });
-
-                const data = await response.json();
-
-                if (data.success) {
-                    showToast(data.message);
-                    localStorage.setItem("resetEmail", email);
-                    setTimeout(() => {
-                        window.location.href = "reset-password.html";
-                    }, 2000);
-                } else {
-                    showToast(data.message, "error");
-                }
-            } catch (error) {
-                showToast("Something went wrong!", "error");
-            }
+            location.reload();
         });
     }
 
-    // Reset Password Logic
+    // Reset Password Logic - form submission
     const resetPasswordForm = document.getElementById("resetPasswordForm");
     if (resetPasswordForm) {
-        resetPasswordForm.addEventListener("submit", async (e) => {
+        resetPasswordForm.addEventListener("submit", (e) => {
             e.preventDefault();
-            const otp = document.getElementById("resetOtp").value;
-            const newPassword = document.getElementById("resetNewPassword").value;
-            const confirmPassword = document.getElementById("resetConfirmPassword").value;
-            const email = localStorage.getItem("resetEmail");
-
-            if (!email) {
-                showToast("Email session expired. Start again.", "error");
-                return;
-            }
-
-            if (newPassword !== confirmPassword) {
-                showToast("Passwords do not match!", "error");
-                return;
-            }
-
-            try {
-                const response = await fetch(`${API_URL}/reset-password`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ email, otp, newPassword })
-                });
-
-                const data = await response.json();
-
-                if (data.success) {
-                    showToast(data.message);
-                    localStorage.removeItem("resetEmail");
-                    setTimeout(() => {
-                        window.location.href = "reset-success.html";
-                    }, 2000);
-                } else {
-                    showToast(data.message, "error");
-                }
-            } catch (error) {
-                showToast("Something went wrong!", "error");
-            }
+            location.reload();
         });
     }
 
-    // (Old checkAuth and profile dropdown removed. Navbar is now simplified to core navigation only)
-    // Auth features can be handled separately if needed
-
+    // Initialize UI on page load
+    updateNavForUser();
+    setupProfileDropdown();
 
 });
 
