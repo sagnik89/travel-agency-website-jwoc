@@ -85,7 +85,7 @@ document.addEventListener("DOMContentLoaded", function () {
     console.log("Extracted user string:", oauthUser);
 
     if (oauthToken) {
-        localStorage.setItem('token', oauthToken);
+        // Token is now handled via httpOnly cookies, not localStorage
         if (oauthUser) {
             try {
                 // Ensure it's valid JSON before saving
@@ -123,7 +123,7 @@ document.addEventListener("DOMContentLoaded", function () {
         const signupBtn = document.getElementById("signup-btn");
         const profileCont = document.getElementById("profile-trigger");
 
-        const token = localStorage.getItem("token");
+        // Token is now handled via httpOnly cookies, check user data for auth state
         let user = null;
         try {
             const userStr = localStorage.getItem("user");
@@ -135,7 +135,7 @@ document.addEventListener("DOMContentLoaded", function () {
             localStorage.removeItem("user"); // clear corrupted data
         }
 
-        if (token && user) {
+        if (user) {
             // Logged in state: Hide signup button, update authBtn to Logout, show profile
             if (signupBtn) signupBtn.style.display = "none";
 
@@ -232,7 +232,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
                 if (data.success) {
                     showToast(data.message);
-                    localStorage.setItem("token", data.token);
+                    // Token is now handled via httpOnly cookies, not localStorage
                     if (data.userData) {
                         localStorage.setItem("user", JSON.stringify(data.userData));
                     }
@@ -350,7 +350,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 } catch (error) {
                     console.error("Logout API error:", error);
                 }
-                localStorage.removeItem("token");
+                // Token is now handled via httpOnly cookies, only remove user data
                 localStorage.removeItem("user");
                 showToast("Logged out successfully!");
                 setTimeout(() => {
